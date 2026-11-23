@@ -45,8 +45,12 @@ new #[Layout('layouts::shop')] class extends Component {
     </flux:breadcrumbs>
 
     <div class="mt-8 grid gap-10 lg:grid-cols-2">
-        <div class="flex aspect-square items-center justify-center rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-700 dark:to-zinc-800">
-            <flux:icon.tag class="size-24 text-zinc-400 dark:text-zinc-500" />
+        <div class="flex aspect-square items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-700 dark:to-zinc-800">
+            @if ($product->imageUrl())
+                <img src="{{ $product->imageUrl() }}" alt="{{ $product->name }}" class="size-full object-cover">
+            @else
+                <flux:icon.tag class="size-24 text-zinc-400 dark:text-zinc-500" />
+            @endif
         </div>
 
         <div class="flex flex-col gap-5">

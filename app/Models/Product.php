@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Number;
 
 /**
@@ -20,13 +21,21 @@ use Illuminate\Support\Number;
  * @property int $quantity_per_package
  * @property int $price_cents
  * @property int $stock_quantity
+ * @property string|null $image_path
  * @property bool $is_active
  */
-#[Fillable(['sku', 'name', 'description', 'packaging_type', 'quantity_per_package', 'price_cents', 'stock_quantity', 'is_active'])]
+#[Fillable(['sku', 'name', 'description', 'image_path', 'packaging_type', 'quantity_per_package', 'price_cents', 'stock_quantity', 'is_active'])]
 class Product extends Model
 {
     /** @use HasFactory<ProductFactory> */
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Product $product): void {
+            $product->deleteImage();
+        });
+    }
 
     /**
      * @return array<string, string>
@@ -56,6 +65,18 @@ class Product extends Model
     public function scopeActive(Builder $query): void
     {
         $query->where('is_active', true);
+    }
+
+    public function imageUrl(): ?string
+    {
+        return $this->image_path ? Storage::disk('public')->url($this->image_path) : null;
+    }
+
+    public function deleteImage(): void
+    {
+        if ($this->image_path) {
+            Storage::disk('public')->delete($this->image_path);
+        }
     }
 
     public function formattedPrice(): string

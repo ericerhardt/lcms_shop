@@ -133,7 +133,14 @@ new #[Title('Inventory')] class extends Component {
                 @forelse ($this->products as $product)
                     <flux:table.row :key="$product->id">
                         <flux:table.cell class="font-mono">{{ $product->sku }}</flux:table.cell>
-                        <flux:table.cell>{{ $product->name }}</flux:table.cell>
+                        <flux:table.cell>
+                            <div class="flex items-center gap-3">
+                                @if ($product->imageUrl())
+                                    <img src="{{ $product->imageUrl() }}" alt="" loading="lazy" class="size-8 rounded object-cover">
+                                @endif
+                                {{ $product->name }}
+                            </div>
+                        </flux:table.cell>
                         <flux:table.cell>{{ $product->packageLabel() }}</flux:table.cell>
                         <flux:table.cell align="end">{{ $product->formattedPrice() }}</flux:table.cell>
                         <flux:table.cell align="end">

@@ -158,8 +158,12 @@ new #[Title('Bulk labels for package printing')] #[Layout('layouts::shop')] clas
             <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 @foreach ($this->products as $product)
                     <article wire:key="product-{{ $product->id }}" class="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white transition hover:shadow-md dark:border-zinc-700 dark:bg-zinc-800">
-                        <a href="{{ route('products.show', $product) }}" wire:navigate class="flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-700 dark:to-zinc-800">
-                            <flux:icon.tag class="size-12 text-zinc-400 transition group-hover:scale-110 dark:text-zinc-500" />
+                        <a href="{{ route('products.show', $product) }}" wire:navigate class="flex aspect-[4/3] items-center justify-center overflow-hidden bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-700 dark:to-zinc-800">
+                            @if ($product->imageUrl())
+                                <img src="{{ $product->imageUrl() }}" alt="{{ $product->name }}" loading="lazy" class="size-full object-cover transition group-hover:scale-105">
+                            @else
+                                <flux:icon.tag class="size-12 text-zinc-400 transition group-hover:scale-110 dark:text-zinc-500" />
+                            @endif
                         </a>
 
                         <div class="flex flex-1 flex-col gap-2 p-4">

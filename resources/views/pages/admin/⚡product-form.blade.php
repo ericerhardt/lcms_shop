@@ -6,11 +6,15 @@ use App\Models\Product;
 use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 new #[Title('Item')] class extends Component {
+    use WithFileUploads;
+
     public ?Product $product = null;
 
     public string $sku = '';
@@ -21,6 +25,10 @@ new #[Title('Item')] class extends Component {
     public string $price = '';
     public int|string $stock_quantity = 0;
     public bool $is_active = true;
+
+    public $photo = null;
+
+    public bool $removeImage = false;
 
     /**
      * Custom field values keyed by custom field id.
@@ -45,6 +53,19 @@ new #[Title('Item')] class extends Component {
         }
     }
 
+    public function updatedPhoto(): void
+    {
+        $this->removeImage = false;
+
+        try {
+            $this->validateOnly('photo', ['photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096']]);
+        } catch (ValidationException $exception) {
+            $this->photo = null;
+
+            throw $exception;
+        }
+    }
+
     /**
      * @return Collection<int, CustomField>
      */
@@ -65,6 +86,7 @@ new #[Title('Item')] class extends Component {
             'price' => ['required', 'numeric', 'min:0', 'max:9999999'],
             'stock_quantity' => ['required', 'integer', 'min:0'],
             'is_active' => ['boolean'],
+            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
         ];
 
         foreach ($this->customFields as $field) {
@@ -87,7 +109,17 @@ new #[Title('Item')] class extends Component {
             'price_cents' => (int) round(((float) $validated['price']) * 100),
             'stock_quantity' => (int) $validated['stock_quantity'],
             'is_active' => $validated['is_active'],
-        ])->save();
+        ]);
+
+        if ($this->photo) {
+            $product->deleteImage();
+            $product->image_path = $this->photo->store('products', 'public');
+        } elseif ($this->removeImage) {
+            $product->deleteImage();
+            $product->image_path = null;
+        }
+
+        $product->save();
 
         $values = collect($this->customValues)
             ->filter(fn ($value, $fieldId) => filled($value) && $this->customFields->contains('id', (int) $fieldId))
@@ -114,6 +146,30 @@ new #[Title('Item')] class extends Component {
                 <flux:input wire:model="name" :label="__('Name')" required />
             </div>
             <flux:textarea wire:model="description" :label="__('Description')" rows="4" />
+        </div>
+
+        <div class="space-y-4">
+            <flux:heading>{{ __('Image') }}</flux:heading>
+            <div class="flex flex-wrap items-start gap-5">
+                @php($currentImage = $removeImage ? null : $product?->imageUrl())
+                @if ($photo && $photo->isPreviewable())
+                    <img src="{{ $photo->temporaryUrl() }}" alt="" class="size-32 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" data-test="image-preview">
+                @elseif ($currentImage)
+                    <img src="{{ $currentImage }}" alt="{{ $product->name }}" class="size-32 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" data-test="image-current">
+                @else
+                    <div class="flex size-32 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800">
+                        <flux:icon.photo class="size-10 text-zinc-400" />
+                    </div>
+                @endif
+
+                <div class="min-w-64 flex-1 space-y-3">
+                    <flux:input wire:model="photo" type="file" accept="image/png,image/jpeg,image/webp" :label="__('Upload an image')" />
+                    <flux:text size="sm">{{ __('JPG, PNG or WebP, up to 4 MB. Square images look best.') }}</flux:text>
+                    @if ($product?->image_path && ! $photo)
+                        <flux:switch wire:model.live="removeImage" :label="__('Remove the current image')" />
+                    @endif
+                </div>
+            </div>
         </div>
 
         <div class="space-y-4">
