@@ -34,6 +34,9 @@
                         <flux:sidebar.item icon="receipt-percent" :href="route('admin.orders')" :current="request()->routeIs('admin.orders')" wire:navigate>
                             {{ __('Orders') }}
                         </flux:sidebar.item>
+                        <flux:sidebar.item icon="envelope" :href="route('admin.inquiries')" :current="request()->routeIs('admin.inquiries')" wire:navigate>
+                            {{ __('Volume requests') }}
+                        </flux:sidebar.item>
                         <flux:sidebar.item icon="users" :href="route('admin.users')" :current="request()->routeIs('admin.users')" wire:navigate>
                             {{ __('Users') }}
                         </flux:sidebar.item>

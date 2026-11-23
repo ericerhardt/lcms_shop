@@ -11,6 +11,7 @@ dataset('admin routes', [
     'custom fields' => fn () => route('admin.custom-fields'),
     'orders' => fn () => route('admin.orders'),
     'users' => fn () => route('admin.users'),
+    'volume requests' => fn () => route('admin.inquiries'),
     'export' => fn () => route('admin.inventory.export'),
 ]);
 
