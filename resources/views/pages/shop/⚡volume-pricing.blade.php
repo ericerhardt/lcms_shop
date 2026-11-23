@@ -1,8 +1,11 @@
 <?php
 
 use App\Models\Inquiry;
+use App\Models\Product;
 use App\Services\ResendMailer;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\Rule;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -18,18 +21,30 @@ new #[Title('Request volume pricing')] #[Layout('layouts::shop')] class extends 
 
     public bool $submitted = false;
 
+    /**
+     * Names of the products currently offered in the shop.
+     *
+     * @return array<int, string>
+     */
+    #[Computed]
+    public function labelTypes(): array
+    {
+        return Product::active()->orderBy('name')->distinct()->pluck('name')->all();
+    }
+
     public function submit(ResendMailer $mailer): void
     {
         $validated = $this->validate([
             'company' => ['required', 'string', 'max:255'],
             'contact_name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255'],
-            'label_type' => ['required', 'string', 'max:255'],
+            'label_type' => ['required', Rule::in($this->labelTypes)],
             'monthly_volume' => ['required', 'string', 'max:255'],
             'delivery_zip' => ['required', 'regex:/^\d{5}(-\d{4})?$/'],
             'packaging_needs' => ['nullable', 'string', 'max:2000'],
         ], [
             'delivery_zip.regex' => __('Enter a 5-digit ZIP code.'),
+            'label_type.in' => __('Choose a label type from the list.'),
         ]);
 
         $throttleKey = 'volume-inquiry:'.request()->ip();
@@ -85,7 +100,11 @@ new #[Title('Request volume pricing')] #[Layout('layouts::shop')] class extends 
                 </div>
 
                 <div class="grid gap-4 sm:grid-cols-2">
-                    <flux:input wire:model="label_type" :label="__('Label type')" placeholder="{{ __('e.g. 4 x 6 direct thermal') }}" required />
+                    <flux:select wire:model="label_type" :label="__('Label type')" :placeholder="__('Choose a label type…')" required>
+                        @foreach ($this->labelTypes as $labelType)
+                            <flux:select.option :value="$labelType">{{ $labelType }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
                     <flux:input wire:model="monthly_volume" :label="__('Monthly volume')" placeholder="{{ __('e.g. 25 cases') }}" required />
                 </div>
 

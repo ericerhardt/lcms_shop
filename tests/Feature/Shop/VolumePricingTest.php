@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Inquiry;
+use App\Models\Product;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\RateLimiter;
@@ -14,7 +15,7 @@ function fillInquiry($component, array $overrides = [])
         'company' => 'Acme Logistics',
         'contact_name' => 'Pat Buyer',
         'email' => 'pat@acme.test',
-        'label_type' => '4 x 6 direct thermal',
+        'label_type' => '4x6 Direct Thermal Labels',
         'monthly_volume' => '30 cases',
         'delivery_zip' => '76180',
         'packaging_needs' => 'Also need cartons',
@@ -31,6 +32,29 @@ function fillInquiry($component, array $overrides = [])
 beforeEach(function () {
     Http::preventStrayRequests();
     RateLimiter::clear('volume-inquiry:127.0.0.1');
+    Product::factory()->create(['name' => '4x6 Direct Thermal Labels']);
+});
+
+test('the label type dropdown lists only the active products', function () {
+    Product::factory()->create(['name' => '3x2 Thermal Transfer Labels']);
+    Product::factory()->inactive()->create(['name' => 'Discontinued Labels']);
+
+    $this->get(route('volume-pricing'))
+        ->assertOk()
+        ->assertSeeInOrder(['3x2 Thermal Transfer Labels', '4x6 Direct Thermal Labels'])
+        ->assertDontSee('Discontinued Labels');
+});
+
+test('a label type that is not a current product is rejected', function () {
+    Product::factory()->inactive()->create(['name' => 'Discontinued Labels']);
+
+    foreach (['Discontinued Labels', 'Something made up'] as $labelType) {
+        fillInquiry(Livewire::test('pages::shop.volume-pricing'), ['label_type' => $labelType])
+            ->call('submit')
+            ->assertHasErrors(['label_type']);
+    }
+
+    expect(Inquiry::count())->toBe(0);
 });
 
 test('the hero button links to the volume pricing form', function () {
