@@ -14,7 +14,7 @@ Route::get('checkout/success', [CheckoutReturnController::class, 'success'])->na
 Route::get('checkout/cancel', [CheckoutReturnController::class, 'cancel'])->name('checkout.cancel');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::view('dashboard', 'dashboard')->name('dashboard');
+    Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
     Route::livewire('orders', 'pages::shop.orders')->name('orders');
 });
 
@@ -26,6 +26,7 @@ Route::middleware(['auth', 'verified', 'can:manage-shop'])->prefix('admin')->nam
     Route::livewire('products/{product}/edit', 'pages::admin.product-form')->name('products.edit');
     Route::livewire('custom-fields', 'pages::admin.custom-fields')->name('custom-fields');
     Route::livewire('orders', 'pages::admin.orders')->name('orders');
+    Route::livewire('users', 'pages::admin.users')->name('users');
     Route::get('inventory/export', InventoryExportController::class)->name('inventory.export');
 });
 
