@@ -42,6 +42,41 @@ class ResendMailer
             $payload['cc'] = $this->recipients('cc');
         }
 
+        $this->deliver($payload);
+    }
+
+    /**
+     * Send a short test message to the configured volume pricing recipients.
+     *
+     * @return array{from: string, to: array<int, string>, cc: array<int, string>}
+     */
+    public function sendTest(): array
+    {
+        $from = config('mail.from.name').' <'.config('mail.from.address').'>';
+        $to = $this->recipients('to');
+        $cc = $this->recipients('cc');
+
+        $payload = [
+            'from' => $from,
+            'to' => $to,
+            'subject' => 'Test email from '.config('app.name'),
+            'text' => 'This is a test email confirming that Resend is configured correctly for '.config('app.name').'.',
+        ];
+
+        if ($cc !== []) {
+            $payload['cc'] = $cc;
+        }
+
+        $this->deliver($payload);
+
+        return ['from' => $from, 'to' => $to, 'cc' => $cc];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function deliver(array $payload): void
+    {
         $response = Http::withToken(config('services.resend.key'))
             ->acceptJson()
             ->timeout(15)
