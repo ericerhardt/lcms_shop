@@ -30,10 +30,15 @@ class AdminSeeder extends Seeder
             return;
         }
 
-        User::factory()->admin()->create([
+        $admin = new User([
             'name' => config('shop.admin.name'),
             'email' => $email,
             'password' => $password,
         ]);
+
+        $admin->forceFill([
+            'is_admin' => true,
+            'email_verified_at' => now(),
+        ])->save();
     }
 }
