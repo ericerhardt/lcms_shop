@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Notifications\WelcomeNewUser;
 use Flux\Flux;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Str;
@@ -24,6 +25,7 @@ new #[Title('Users')] class extends Component {
     public string $email = '';
     public string $password = '';
     public bool $is_admin = false;
+    public bool $sendWelcome = true;
 
     public function updatedSearch(): void
     {
@@ -73,7 +75,7 @@ new #[Title('Users')] class extends Component {
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique(User::class, 'email')->ignore($this->editingId)],
-            'password' => [$this->editingId ? 'nullable' : 'required', 'string', Password::default()],
+            'password' => [$this->editingId || $this->sendWelcome ? 'nullable' : 'required', 'string', Password::default()],
             'is_admin' => ['boolean'],
         ]);
 
@@ -87,13 +89,17 @@ new #[Title('Users')] class extends Component {
 
         $user->fill(['name' => $validated['name'], 'email' => $validated['email']]);
 
+        $isNew = ! $user->exists;
+
         if (filled($validated['password'])) {
             $user->password = $validated['password'];
+        } elseif ($isNew) {
+            $user->password = Str::random(40);
         }
 
         $user->is_admin = $validated['is_admin'];
 
-        if (! $user->exists) {
+        if ($isNew) {
             $user->email_verified_at = now();
         }
 
@@ -101,7 +107,33 @@ new #[Title('Users')] class extends Component {
 
         unset($this->users);
         Flux::modal('user')->close();
+
+        if ($isNew && $this->sendWelcome) {
+            $this->sendPasswordEmail($user, __('User saved and the welcome email sent.'));
+
+            return;
+        }
+
         Flux::toast(text: __('User saved.'), variant: 'success');
+    }
+
+    public function sendPasswordLink(int $userId): void
+    {
+        $this->sendPasswordEmail(User::findOrFail($userId), __('Password email sent.'));
+    }
+
+    private function sendPasswordEmail(User $user, string $successMessage): void
+    {
+        try {
+            $user->notify(new WelcomeNewUser);
+        } catch (Throwable $e) {
+            report($e);
+            Flux::toast(text: __('The user was saved but the email could not be sent. Check the mail settings and logs.'), variant: 'danger');
+
+            return;
+        }
+
+        Flux::toast(text: $successMessage, variant: 'success');
     }
 
     public function delete(int $userId): void
@@ -120,7 +152,7 @@ new #[Title('Users')] class extends Component {
 
     private function resetForm(): void
     {
-        $this->reset('editingId', 'name', 'email', 'password', 'is_admin');
+        $this->reset('editingId', 'name', 'email', 'password', 'is_admin', 'sendWelcome');
         $this->resetValidation();
     }
 }; ?>
@@ -162,6 +194,7 @@ new #[Title('Users')] class extends Component {
                         <flux:table.cell align="end">{{ $user->orders_count }}</flux:table.cell>
                         <flux:table.cell>{{ $user->created_at->format('M j, Y') }}</flux:table.cell>
                         <flux:table.cell align="end">
+                            <flux:button wire:click="sendPasswordLink({{ $user->id }})" wire:confirm="{{ __('Email :email a link to set their password?', ['email' => $user->email]) }}" size="sm" variant="ghost" icon="paper-airplane" :aria-label="__('Send password email')" />
                             <flux:button wire:click="edit({{ $user->id }})" size="sm" variant="ghost" icon="pencil-square" :aria-label="__('Edit')" />
                             @if ($user->id !== auth()->id())
                                 <flux:button wire:click="delete({{ $user->id }})" wire:confirm="{{ __('Delete this user? Their past orders are kept.') }}" size="sm" variant="ghost" icon="trash" :aria-label="__('Delete')" />
@@ -183,7 +216,11 @@ new #[Title('Users')] class extends Component {
 
             <flux:input wire:model="name" :label="__('Name')" required autocomplete="off" />
             <flux:input wire:model="email" type="email" :label="__('Email')" required autocomplete="off" />
-            <flux:input wire:model="password" type="password" :label="$editingId ? __('New password (leave blank to keep)') : __('Password')" viewable autocomplete="new-password" />
+            @unless ($editingId)
+                <flux:switch wire:model.live="sendWelcome" :label="__('Email them a link to set their own password')" />
+            @endunless
+
+            <flux:input wire:model="password" type="password" :label="$editingId ? __('New password (leave blank to keep)') : ($sendWelcome ? __('Password (optional)') : __('Password'))" viewable autocomplete="new-password" />
 
             <flux:field variant="inline">
                 <flux:checkbox wire:model="is_admin" />
