@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class AdminSeeder extends Seeder
 {
@@ -19,6 +20,7 @@ class AdminSeeder extends Seeder
 
         $email = config('shop.admin.email') ?: ($production ? null : 'admin@example.com');
         $password = config('shop.admin.password') ?: ($production ? null : 'password');
+        $email = filled($email) ? Str::lower(trim($email)) : null;
 
         if (blank($email) || blank($password)) {
             $this->command?->warn('Skipped admin user: set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD to create one.');

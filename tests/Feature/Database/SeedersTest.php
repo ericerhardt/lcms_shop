@@ -72,6 +72,15 @@ test('in production the admin seeder uses the configured credentials', function 
         ->and(Hash::check('a-strong-secret', $admin->password))->toBeTrue();
 });
 
+test('the admin seeder stores the email lowercased so it matches the lowercased login', function () {
+    app()->detectEnvironment(fn () => 'production');
+    config(['shop.admin.email' => ' Owner@LCM.test ', 'shop.admin.password' => 'a-strong-secret']);
+
+    app(AdminSeeder::class)->run();
+
+    expect(User::sole()->email)->toBe('owner@lcm.test');
+});
+
 test('in production the admin seeder creates no account without configured credentials', function () {
     app()->detectEnvironment(fn () => 'production');
     config(['shop.admin.email' => null, 'shop.admin.password' => null]);
