@@ -153,9 +153,9 @@ new #[Title('Item')] class extends Component {
             <div class="flex flex-wrap items-start gap-5">
                 @php($currentImage = $removeImage ? null : $product?->imageUrl())
                 @if ($photo && $photo->isPreviewable())
-                    <img src="{{ $photo->temporaryUrl() }}" alt="" class="size-32 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" data-test="image-preview">
+                    <img src="{{ $photo->temporaryUrl() }}" alt="" class="size-32 rounded-lg border border-zinc-200 bg-white object-contain p-1 dark:border-zinc-700" data-test="image-preview">
                 @elseif ($currentImage)
-                    <img src="{{ $currentImage }}" alt="{{ $product->name }}" class="size-32 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" data-test="image-current">
+                    <img src="{{ $currentImage }}" alt="{{ $product->name }}" class="size-32 rounded-lg border border-zinc-200 bg-white object-contain p-1 dark:border-zinc-700" data-test="image-current">
                 @else
                     <div class="flex size-32 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800">
                         <flux:icon.photo class="size-10 text-zinc-400" />

@@ -136,7 +136,7 @@ new #[Title('Inventory')] class extends Component {
                         <flux:table.cell>
                             <div class="flex items-center gap-3">
                                 @if ($product->imageUrl())
-                                    <img src="{{ $product->imageUrl() }}" alt="" loading="lazy" class="size-8 rounded object-cover">
+                                    <img src="{{ $product->imageUrl() }}" alt="" loading="lazy" class="size-8 rounded border border-zinc-200 bg-white object-contain dark:border-zinc-700">
                                 @endif
                                 {{ $product->name }}
                             </div>
