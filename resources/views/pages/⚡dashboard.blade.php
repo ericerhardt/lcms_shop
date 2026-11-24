@@ -3,6 +3,7 @@
 use App\Enums\OrderStatus;
 use App\Models\Inquiry;
 use App\Models\Order;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Number;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -24,8 +25,8 @@ new #[Title('Dashboard')] class extends Component {
             ->where('status', OrderStatus::Paid)
             ->unless($isAdmin, fn ($query) => $query->where('user_id', auth()->id()));
 
-        $monthSales = (int) $paidOrders()->where('paid_at', '>=', $monthStart)->sum('subtotal_cents');
-        $allSales = (int) $paidOrders()->sum('subtotal_cents');
+        $monthSales = (int) $paidOrders()->where('paid_at', '>=', $monthStart)->sum(DB::raw('subtotal_cents + shipping_cents'));
+        $allSales = (int) $paidOrders()->sum(DB::raw('subtotal_cents + shipping_cents'));
         $monthOrders = $paidOrders()->where('paid_at', '>=', $monthStart)->count();
         $allOrders = $paidOrders()->count();
 

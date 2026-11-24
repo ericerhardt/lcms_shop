@@ -2,10 +2,16 @@
 
 use App\Enums\OrderStatus;
 use App\Models\Order;
+use App\Models\ShippingMethod;
 use App\Services\Cart;
+use App\Services\CheckoutTotals;
 use App\Services\StripeCheckout;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -22,6 +28,8 @@ new #[Title('Checkout')] #[Layout('layouts::shop')] class extends Component {
     public string $postal_code = '';
     public string $country = 'US';
 
+    public ?int $shipping_method_id = null;
+
     public ?string $paymentError = null;
 
     public function mount(Cart $cart): void
@@ -36,12 +44,23 @@ new #[Title('Checkout')] #[Layout('layouts::shop')] class extends Component {
             $this->email = $user->email;
             $this->name = $user->name;
         }
+
+        $this->shipping_method_id = $this->shippingMethods->first()?->id;
+    }
+
+    /**
+     * @return Collection<int, ShippingMethod>
+     */
+    #[Computed]
+    public function shippingMethods(): Collection
+    {
+        return ShippingMethod::query()->active()->ordered()->get();
     }
 
     /**
      * Create the order from the cart and send the customer to Stripe to pay.
      */
-    public function pay(Cart $cart, StripeCheckout $stripe): void
+    public function pay(Cart $cart, StripeCheckout $stripe, CheckoutTotals $totals): void
     {
         $this->paymentError = null;
 
@@ -56,6 +75,12 @@ new #[Title('Checkout')] #[Layout('layouts::shop')] class extends Component {
             'state' => ['required', 'string', 'max:100'],
             'postal_code' => ['required', 'string', 'max:20'],
             'country' => ['required', 'string', 'size:2'],
+            'shipping_method_id' => $this->shippingMethods->isEmpty()
+                ? ['nullable']
+                : ['required', Rule::in($this->shippingMethods->pluck('id')->all())],
+        ], [
+            'shipping_method_id.required' => __('Choose a shipping method.'),
+            'shipping_method_id.in' => __('Choose a shipping method.'),
         ]);
 
         $lines = $cart->lines();
@@ -72,13 +97,16 @@ new #[Title('Checkout')] #[Layout('layouts::shop')] class extends Component {
             return;
         }
 
-        $order = DB::transaction(function () use ($validated, $lines): Order {
+        $shipping = $this->shippingMethods->firstWhere('id', $this->shipping_method_id);
+        $amounts = Arr::except($totals->calculate($lines->sum('total_cents'), $shipping), 'total_cents');
+
+        $order = DB::transaction(function () use ($validated, $lines, $amounts): Order {
             $order = Order::create([
-                ...$validated,
+                ...Arr::except($validated, 'shipping_method_id'),
+                ...$amounts,
                 'country' => strtoupper($validated['country']),
                 'user_id' => Auth::id(),
                 'status' => OrderStatus::Pending,
-                'subtotal_cents' => $lines->sum('total_cents'),
             ]);
 
             foreach ($lines as $line) {
@@ -117,9 +145,13 @@ new #[Title('Checkout')] #[Layout('layouts::shop')] class extends Component {
 
     public function with(): array
     {
-        $cart = app(Cart::class);
+        $lines = app(Cart::class)->lines();
+        $shipping = $this->shippingMethods->firstWhere('id', $this->shipping_method_id);
 
-        return ['lines' => $cart->lines(), 'subtotal' => $cart->formattedSubtotal()];
+        return [
+            'lines' => $lines,
+            'totals' => app(CheckoutTotals::class)->calculate($lines->sum('total_cents'), $shipping),
+        ];
     }
 }; ?>
 
@@ -163,12 +195,23 @@ new #[Title('Checkout')] #[Layout('layouts::shop')] class extends Component {
                 <flux:input wire:model="country" :label="__('Country (2-letter code)')" required maxlength="2" class="sm:w-40" autocomplete="country" />
             </fieldset>
 
+            @if ($this->shippingMethods->isNotEmpty())
+                <fieldset class="space-y-4">
+                    <flux:heading>{{ __('Shipping method') }}</flux:heading>
+                    <flux:select wire:model.live="shipping_method_id" :label="__('How should we ship it?')" data-test="shipping-method">
+                        @foreach ($this->shippingMethods as $method)
+                            <flux:select.option :value="$method->id">{{ $method->label() }} ({{ $method->formattedPrice() }})</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                </fieldset>
+            @endif
+
             @if ($paymentError)
                 <flux:callout variant="danger" icon="exclamation-triangle" :heading="$paymentError" data-test="payment-error" />
             @endif
 
             <flux:button type="submit" variant="primary" class="w-full" icon="lock-closed" data-test="pay-button">
-                <span wire:loading.remove wire:target="pay">{{ __('Pay :amount with Stripe', ['amount' => $subtotal]) }}</span>
+                <span wire:loading.remove wire:target="pay">{{ __('Pay :amount with Stripe', ['amount' => Number::currency($totals['total_cents'] / 100, 'USD')]) }}</span>
                 <span wire:loading wire:target="pay">{{ __('Redirecting to Stripe…') }}</span>
             </flux:button>
         </form>
@@ -186,10 +229,28 @@ new #[Title('Checkout')] #[Layout('layouts::shop')] class extends Component {
                     </li>
                 @endforeach
             </ul>
-            <div class="mt-4 flex justify-between border-t border-zinc-200 pt-4 font-semibold dark:border-zinc-700">
-                <span>{{ __('Total') }}</span>
-                <span>{{ $subtotal }}</span>
-            </div>
+            <dl class="mt-4 space-y-2 border-t border-zinc-200 pt-4 text-sm dark:border-zinc-700">
+                <div class="flex justify-between">
+                    <dt>{{ __('Subtotal') }}</dt>
+                    <dd>{{ Number::currency($totals['subtotal_cents'] / 100, 'USD') }}</dd>
+                </div>
+                @if ($totals['shipping_carrier'])
+                    <div class="flex justify-between" data-test="summary-shipping">
+                        <dt>{{ __('Shipping') }} <span class="text-zinc-500">({{ $totals['shipping_carrier'] }}, {{ $totals['shipping_timeframe'] }})</span></dt>
+                        <dd>{{ $totals['shipping_cents'] === 0 ? __('Free') : Number::currency($totals['shipping_cents'] / 100, 'USD') }}</dd>
+                    </div>
+                @endif
+                @if ($totals['tax_cents'] > 0)
+                    <div class="flex justify-between" data-test="summary-tax">
+                        <dt>{{ $totals['tax_label'] }} <span class="text-zinc-500">({{ rtrim(rtrim(number_format($totals['tax_rate'], 3), '0'), '.') }}%)</span></dt>
+                        <dd>{{ Number::currency($totals['tax_cents'] / 100, 'USD') }}</dd>
+                    </div>
+                @endif
+                <div class="flex justify-between border-t border-zinc-200 pt-3 text-base font-semibold dark:border-zinc-700">
+                    <dt>{{ __('Total') }}</dt>
+                    <dd data-test="summary-total">{{ Number::currency($totals['total_cents'] / 100, 'USD') }}</dd>
+                </div>
+            </dl>
             <flux:link :href="route('cart')" class="mt-4 inline-block text-sm" wire:navigate>{{ __('Edit cart') }}</flux:link>
         </aside>
     </div>

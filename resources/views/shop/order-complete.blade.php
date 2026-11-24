@@ -5,7 +5,7 @@
                 <flux:icon.check-circle class="mx-auto size-14 text-green-500" />
                 <flux:heading size="xl" level="1" class="mt-4">{{ __('Thank you for your order!') }}</flux:heading>
                 <flux:text class="mt-2">
-                    {{ __('Order :number is confirmed. A receipt will be sent to :email by Stripe.', ['number' => $order->number(), 'email' => $order->email]) }}
+                    {{ __('Order :number is confirmed. A confirmation email is on its way to :email.', ['number' => $order->number(), 'email' => $order->email]) }}
                 </flux:text>
             </div>
         @else
@@ -32,10 +32,28 @@
                     </li>
                 @endforeach
             </ul>
-            <div class="flex justify-between border-t border-zinc-200 pt-4 font-semibold dark:border-zinc-700">
-                <span>{{ __('Total') }}</span>
-                <span>{{ $order->formattedTotal() }}</span>
-            </div>
+            <dl class="space-y-2 border-t border-zinc-200 pt-4 text-sm dark:border-zinc-700">
+                <div class="flex justify-between">
+                    <dt>{{ __('Subtotal') }}</dt>
+                    <dd>{{ $order->formattedSubtotal() }}</dd>
+                </div>
+                @if ($order->shipping_carrier)
+                    <div class="flex justify-between">
+                        <dt>{{ __('Shipping') }} <span class="text-zinc-500">({{ $order->shipping_carrier }}, {{ $order->shipping_timeframe }})</span></dt>
+                        <dd>{{ $order->formattedShipping() }}</dd>
+                    </div>
+                @endif
+                @if ($order->tax_cents > 0)
+                    <div class="flex justify-between">
+                        <dt>{{ $order->tax_label }}</dt>
+                        <dd>{{ $order->formattedTax() }}</dd>
+                    </div>
+                @endif
+                <div class="flex justify-between border-t border-zinc-200 pt-3 text-base font-semibold dark:border-zinc-700">
+                    <dt>{{ __('Total') }}</dt>
+                    <dd>{{ $order->formattedTotal() }}</dd>
+                </div>
+            </dl>
         </div>
 
         <div class="mt-6 text-center">

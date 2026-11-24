@@ -2,6 +2,8 @@
 
 use App\Enums\OrderStatus;
 use App\Models\Order;
+use App\Services\OrderNotifier;
+use Flux\Flux;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -18,6 +20,17 @@ new #[Title('Orders')] class extends Component {
     public function updatedStatus(): void
     {
         $this->resetPage();
+    }
+
+    public function resendConfirmation(int $orderId, OrderNotifier $notifier): void
+    {
+        $order = Order::where('status', OrderStatus::Paid)->findOrFail($orderId);
+
+        if ($notifier->sendConfirmation($order, force: true)) {
+            Flux::toast(text: __('Confirmation email sent to :email.', ['email' => $order->email]), variant: 'success');
+        } else {
+            Flux::toast(text: __('The email could not be sent. Check the mail settings and logs.'), variant: 'danger');
+        }
     }
 
     /**
@@ -74,6 +87,16 @@ new #[Title('Orders')] class extends Component {
                             </li>
                         @endforeach
                     </ul>
+                    <dl class="space-y-1 md:col-span-2 md:max-w-xs md:justify-self-end md:w-full">
+                        <div class="flex justify-between"><dt>{{ __('Subtotal') }}</dt><dd>{{ $order->formattedSubtotal() }}</dd></div>
+                        @if ($order->shipping_carrier)
+                            <div class="flex justify-between gap-3"><dt>{{ __('Shipping') }} <span class="text-zinc-500">({{ $order->shipping_carrier }}, {{ $order->shipping_timeframe }})</span></dt><dd>{{ $order->formattedShipping() }}</dd></div>
+                        @endif
+                        @if ($order->tax_cents > 0)
+                            <div class="flex justify-between"><dt>{{ $order->tax_label }}</dt><dd>{{ $order->formattedTax() }}</dd></div>
+                        @endif
+                        <div class="flex justify-between border-t border-zinc-200 pt-1 font-semibold dark:border-zinc-700"><dt>{{ __('Total') }}</dt><dd>{{ $order->formattedTotal() }}</dd></div>
+                    </dl>
                     <address class="not-italic text-zinc-600 dark:text-zinc-400">
                         {{ $order->name }}<br>
                         @if ($order->company){{ $order->company }}<br>@endif
@@ -82,6 +105,15 @@ new #[Title('Orders')] class extends Component {
                         {{ $order->city }}, {{ $order->state }} {{ $order->postal_code }} {{ $order->country }}
                         @if ($order->phone)<br>{{ $order->phone }}@endif
                     </address>
+
+                    @if ($order->status === \App\Enums\OrderStatus::Paid)
+                        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-700 md:col-span-2">
+                            <flux:text size="sm">
+                                {{ $order->confirmation_sent_at ? __('Confirmation emailed :when.', ['when' => $order->confirmation_sent_at->format('M j, Y g:i A')]) : __('No confirmation email has been sent for this order.') }}
+                            </flux:text>
+                            <flux:button wire:click="resendConfirmation({{ $order->id }})" size="sm" icon="paper-airplane" data-test="resend-confirmation">{{ $order->confirmation_sent_at ? __('Send again') : __('Send confirmation') }}</flux:button>
+                        </div>
+                    @endif
                 </div>
             </details>
         @empty

@@ -38,6 +38,18 @@ class StripeCheckout
             ],
         ])->all();
 
+        if ($order->shipping_cents > 0) {
+            $lineItems[] = $this->extraLine(
+                'Shipping: '.trim("{$order->shipping_carrier} {$order->shipping_timeframe}"),
+                $order->shipping_cents,
+            );
+        }
+
+        if ($order->tax_cents > 0) {
+            $rate = rtrim(rtrim(number_format((float) $order->tax_rate, 3), '0'), '.');
+            $lineItems[] = $this->extraLine("{$order->tax_label} ({$rate}%)", $order->tax_cents);
+        }
+
         $response = $this->client()->post('/checkout/sessions', [
             'mode' => 'payment',
             'customer_email' => $order->email,
@@ -53,6 +65,23 @@ class StripeCheckout
         }
 
         return ['id' => $response->json('id'), 'url' => $response->json('url')];
+    }
+
+    /**
+     * A single-quantity line for charges that are not catalog items, such as shipping or tax.
+     *
+     * @return array<string, mixed>
+     */
+    private function extraLine(string $name, int $amountCents): array
+    {
+        return [
+            'quantity' => 1,
+            'price_data' => [
+                'currency' => 'usd',
+                'unit_amount' => $amountCents,
+                'product_data' => ['name' => $name],
+            ],
+        ];
     }
 
     /**

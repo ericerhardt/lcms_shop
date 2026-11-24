@@ -37,8 +37,14 @@
                         <flux:sidebar.item icon="envelope" :href="route('admin.inquiries')" :current="request()->routeIs('admin.inquiries')" wire:navigate>
                             {{ __('Volume requests') }}
                         </flux:sidebar.item>
+                        <flux:sidebar.item icon="truck" :href="route('admin.shipping')" :current="request()->routeIs('admin.shipping')" wire:navigate>
+                            {{ __('Shipping') }}
+                        </flux:sidebar.item>
                         <flux:sidebar.item icon="users" :href="route('admin.users')" :current="request()->routeIs('admin.users')" wire:navigate>
                             {{ __('Users') }}
+                        </flux:sidebar.item>
+                        <flux:sidebar.item icon="cog-6-tooth" :href="route('admin.settings')" :current="request()->routeIs('admin.settings')" wire:navigate>
+                            {{ __('Store settings') }}
                         </flux:sidebar.item>
                     </flux:sidebar.group>
                 @endcan
