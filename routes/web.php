@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CheckoutReturnController;
 use App\Http\Controllers\InventoryExportController;
+use App\Http\Controllers\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
 
 // Storefront (guests and customers)
@@ -11,6 +12,7 @@ Route::livewire('volume-pricing', 'pages::shop.volume-pricing')->name('volume-pr
 Route::livewire('cart', 'pages::shop.cart')->name('cart');
 Route::livewire('checkout', 'pages::shop.checkout')->name('checkout');
 Route::get('checkout/success', [CheckoutReturnController::class, 'success'])->name('checkout.success');
+Route::post('stripe/webhook', StripeWebhookController::class)->name('stripe.webhook');
 Route::get('checkout/cancel', [CheckoutReturnController::class, 'cancel'])->name('checkout.cancel');
 
 Route::middleware(['auth', 'verified'])->group(function () {
